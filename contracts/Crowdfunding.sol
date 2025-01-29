@@ -7,6 +7,8 @@ contract Crowdfunding {
     uint256 public goal;
     uint256 public deadline;
     address public owner;
+    bool public paused;
+
 
     struct Tier {
         string name;
@@ -38,6 +40,11 @@ contract Crowdfunding {
         _;
     }
 
+    modifier notPaused(){
+        require(!paused,"Contract is paused.");
+        _;
+    }
+
     constructor(
         string memory _name,
         string memory _description,
@@ -62,7 +69,7 @@ contract Crowdfunding {
         }
     }
 
-    function fund(uint256 _tierIndex) public payable campaignOpen{
+    function fund(uint256 _tierIndex) public payable campaignOpen notPaused{
         require(_tierIndex < tiers.length, "Invalid tier.");
         require(msg.value == tiers[_tierIndex].amount, "Incorrect amount.");
 
@@ -110,5 +117,24 @@ contract Crowdfunding {
 
     function hasFundedTier(address _backer, uint256 _tierIndex) public view returns (bool){
         return backers[_backer].fundedTiers[_tierIndex];
+    }
+
+    function getTiers() public view returns(Tier[] memory){
+        return tiers;
+    }
+
+    function togglePause() public onlyOwner{
+        paused = !paused;
+    }
+
+    function getCampaignStatus() public view returns(CampaignState){
+        if (state == CampaignState.Active && block.timestamp > deadline){
+            return address(this).balance >= goal? CampaignState.Successful : CampaignState.Failed;
+        }
+        return state;
+    }
+
+    function extendDeadline(uint256 _daysToAdd) public onlyOwner campaignOpen{
+        deadline += _daysToAdd * 1 days;
     }
 }
